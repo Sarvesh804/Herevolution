@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>City Exploration</title>
+    <link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.8/css/line.css">
+    <link rel="stylesheet" href="/index.css">
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-ui.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js"></script>
+</head>
+
+<body>
+    <div class="all-contain">
+        <div class="container">
+            <div class="right-section">
+                <div class="title">
+                    <p>City Exploration <i class="uil uil-times"></i></p>
+                </div>
+                <div class="list">
+                    <ul>
+                        <li>Monuments <i class="uil uil-arrow-right"
+                                style="font-size: 30px; padding: 0; margin: 0;"></i></li>
+                        <li>Restaurants <i class="uil uil-arrow-right"
+                                style="font-size: 30px; padding: 0; margin: 0;"></i></li>
+                        <li>Lodges <i class="uil uil-arrow-right" style="font-size: 30px; padding: 0; margin: 0;"></i>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div id="mapContainer">
+            <div class="navbar">
+                <i class="uil uil-bars" style="font-size: 25px; margin:0 10px"></i>
+                <div class="search-container">
+                    <input id="searchInput" type="text" placeholder="Search">
+                    <button id="searchButton">
+                        <label for="searchInput">
+                            <i class="uil uil-search"></i>
+                        </label>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var platform = new H.service.Platform({ 'apikey': 'fNkvwbGoJrOVRLvBHIa8Ldk4z6-Ic9sVj7hRqTekts0' });
+        var defaultLayers = platform.createDefaultLayers();
+        var map = new H. Map(
+            document.getElementById('mapContainer'),
+            defaultLayers.vector.normal.map,
+            {
+                zoom: 5,
+                center: { lat: 20.5, lng: 78.9 }
+            }
+        );
+        var behavior = new H.mapevents.Behavior(new H.mapevents.MapEvents(map));
+        var ui = H.ui.UI.createDefault(map, defaultLayers);
+
+        var searchMarkers = []; // Array to store search result markers
+
+        fetch('monuments.csv')
+            .then(response => response.text())
+            .then(data => {
+                var markersArray = parseCSV(data);
+                addMarkers(markersArray);
+            });
+
+        function parseCSV(data) {
+            var lines = data.split('\n');
+            var markersArray = [];
+            lines.forEach(function (line) {
+                var values = line.split(',');
+                if (values.length >= 3) {
+                    var latitude = parseFloat(values[1]);
+                    var longitude = parseFloat(values[2]);
+                    if (!isNaN(latitude) && !isNaN(longitude)) {
+                        markersArray.push({ lat: latitude, lng: longitude });
+                    }
+                }
+            });
+            return markersArray;
+        }
+
+        function addMarkers(markersArray) {
+            markersArray.forEach(function (markerData) {
+                try {
+                    var iconOptions = {
+                        size: { w: 30, h: 30 },
+                        anchor: { x: 12, y: 12 },
+                        crossOrigin: false
+                    };
+                    var customIcon = new H.map.Icon('monuments.png', iconOptions);
+                    var marker = new H.map.Marker(markerData, { icon: customIcon });
+                    map.addObject(marker);
+                } catch (error) {
+                    console.error('Error adding marker:', error);
+                }
+            });
+        }
+
+        function performSearch(query) {
+            var searchService = platform.getSearchService();
+            var parameters = {
+                q: query,
+                at: map.getCenter().lat + ',' + map.getCenter().lng
+            };
+            searchService.geocode(parameters, onSuccess, onError);
+        }
+
+        function onSuccess(result) {
+            clearSearchMarkers();
+            if (result && result.items && result.items.length > 0) {
+                var location = result.items[0].position;
+                map.setCenter(location);
+                result.items.forEach(function (item) {
+                    var marker = new H.map.Marker(item.position);
+                    searchMarkers.push(marker);
+                    map.addObject(marker);
+                });
+            } else {
+                console.log('No results found.');
+            }
+        }
+
+        function onError(error) {
+            console.error('Error:', error);
+        }
+
+        function clearSearchMarkers() {
+            searchMarkers.forEach(function (marker) {
+                map.removeObject(marker);
+            });
+            searchMarkers = [];
+        }
+
+        document.getElementById('searchButton').addEventListener('click', function (e) {
+            var query = document.getElementById('searchInput').value;
+            if (query.length > 0) {
+                performSearch(query);
+            } else {
+                map.setCenter({ lat: 20.5, lng: 78.9 });
+                clearSearchMarkers();
+            }
+        });
+
+        var mapContainer = document.getElementById('mapContainer');
+        mapContainer.addEventListener('mousedown', function () {
+            mapContainer.style.cursor = 'grabbing';
+        });
+        mapContainer.addEventListener('mouseup', function () {
+            mapContainer.style.cursor = 'grab';
+        });
+    </script>
+</body>
+<script src="/script.js"></script>
+
+</html>
